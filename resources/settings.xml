@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <settings>
 	<category label="51000">
-		<setting id="macAddress" type="text" label="51001" default="00:25:11:c4:fb:8a" />
-		<setting id="hostOrIp" type="text" label="51002" default="my-server" />
+		<setting id="hostOrIp" type="text" label="51001" default="https://www.YourUrlHere.com:12345" />
+		<setting id="altIp" type="bool" label="51002"  default="false" />
+		<setting id="localIp" type="text" label="51003" default="127.0.0.1" visible="eq(-1,true)"/>
 	</category>
 	<category label="54000">
 		<setting id="separator" type="lsep" label="54001"/>

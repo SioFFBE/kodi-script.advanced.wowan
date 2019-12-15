@@ -1,18 +1,20 @@
-# Wake-On-LAN
+# Wake-On-WAN
 
-import socket, ping, os, sys, time
+import socket, ping, os, sys, time, urllib2
+from urllib2 import Request, urlopen, URLError
 import xbmc, xbmcgui, xbmcaddon
 
 def main(isAutostart=False):
 	
-	print 'script.advanced.wol: Starting WOL script'
+	print 'script.advanced.wowan: Starting WoWAN script'
 	
 	####### Read Settings
-	settings = xbmcaddon.Addon( id="script.advanced.wol" )
+	settings = xbmcaddon.Addon( id="script.advanced.wowan" )
 	language  = settings.getLocalizedString
 	# basic settings
-	macAddress = settings.getSetting("macAddress")
-	hostOrIp = settings.getSetting("hostOrIp")	
+	hostOrIp = settings.getSetting("hostOrIp")
+	altIp = settings.getSetting("altIp")
+	localIp = settings.getSetting("localIp")
 	#notification settings
 	enableLaunchNotifies = settings.getSetting("enableLaunchNotifies")
 	enablePingCounterNotifies = settings.getSetting("enablePingCounterNotifies")
@@ -28,16 +30,6 @@ def main(isAutostart=False):
 	updateVideoLibraryAfterWol = settings.getSetting("updateVideoLibraryAfterWol")
 	updateMusicLibraryAfterWol = settings.getSetting("updateMusicLibraryAfterWol")
 	libraryUpdatesDelay = int(settings.getSetting("libraryUpdatesDelay"))
-
-	#if the scrpit was called with a 3rd parameter,
-	#use the mac-address and host/ip from there
-	try:
-		if (len(sys.argv[3])>0):
-			arrCustomServer = sys.argv[3].split('@')
-			hostOrIp = arrCustomServer[0]
-			macAddress = arrCustomServer[1]
-	except:
-		pass
 
 	# Set Icons
 	rootDir = settings.getAddonInfo('path')
@@ -58,13 +50,18 @@ def main(isAutostart=False):
 	except:
 		pass
 
-	# Launch additional command passed with parameters, if it should not be delayed to after successful wakeup
-	if ((launchcommand == True) & (delaycommand == False)):
-		xbmc.executebuiltin(sys.argv[1])
-
-	# Send WOL-Packet
-	xbmc.executebuiltin('XBMC.WakeOnLan("'+macAddress+'")')
-	print 'script.advanced.wol: WakeOnLan signal sent to MAC-Address '+macAddress
+#Access remote server by hostOrIp (really ugly)
+	req = Request(hostOrIp)
+	try:
+		response = urlopen(req)
+	except URLError as e:
+		if hasattr(e, 'reason'):
+			pass
+		elif hasattr(e, 'code'):
+			pass
+	else:
+		pass
+	print 'script.advanced.wowan: WoWAN signal sent to URL '+hostOrIp
 	
 	# Send Connection Notification
 	if (enableLaunchNotifies == "true"):		
@@ -83,8 +80,8 @@ def main(isAutostart=False):
 		if (enableHostupNotifies == "true"):
 			xbmc.executebuiltin('XBMC.Notification("'+language(60011).replace("%hostOrIp%",hostOrIp)+'","",5000,"'+iconSuccess+'")')
 		hostupConfirmed = True
-	else:
-		#otherwise we determine the success by pinging (default behaviour)
+	elif (altIp == "false"):
+		#otherwise we determine the success by pinging host (default behavior)
 		try:
 			timecount = 1
 			while timecount <= pingTimeout:
@@ -107,7 +104,7 @@ def main(isAutostart=False):
 				
 		except socket.error, (errno, msg):
 			xbmc.sleep(1000)
-			print 'script.advanced.wol: Error No.: '+str(errno)+' / Error Msg.: '+msg.decode("utf-8","ignore")
+			print 'script.advanced.wowan: Error No.: '+str(errno)+' / Error Msg.: '+msg.decode("utf-8","ignore")
 			if (enablePingCounterNotifies == "true"):
 				if errno == 11004:
 					xbmc.executebuiltin('XBMC.Notification("'+language(60005)+'","'+language(60006).replace("%hostOrIp%",hostOrIp)+'",10000,"'+iconError+'")')
@@ -119,16 +116,45 @@ def main(isAutostart=False):
 						xbmc.executebuiltin('XBMC.Notification("'+language(60005)+'","'+language(60010)+'",20000,"'+iconError+'")')		
 				else:
 					xbmc.executebuiltin('XBMC.Notification("'+language(60005)+'","'+msg.decode("utf-8","ignore")+'",20000,"'+iconError+'")')
+	else:
+		#otherwise we determine the success by pinging alternate host IP (over LAN)
+		try:
+			timecount = 1
+			while timecount <= pingTimeout:
+				delay = ping.do_one(localIp, 1)
+				if delay == None:
+					if (enablePingCounterNotifies == "true"):
+						xbmc.executebuiltin('XBMC.Notification("'+language(60001).replace("%hostOrIp%",localIp)+'","'+language(60002).replace("%timecount%",str(timecount)).replace("%timeout%",str(pingTimeout))+'",5000,"'+iconConnect+'")')
+					timecount = timecount+1
+				else:
+					break
+			if delay == None:
+				xbmc.sleep(1000)
+				if (enableHostupNotifies == "true"):
+					xbmc.executebuiltin('XBMC.Notification("'+language(60003).replace("%hostOrIp%",localIp)+'","",5000,"'+iconError+'")')
+			else:
+				xbmc.sleep(1000)
+				if (enableHostupNotifies == "true"):
+					xbmc.executebuiltin('XBMC.Notification("'+language(60004).replace("%hostOrIp%",localIp)+'","",5000,"'+iconSuccess+'")')
+				hostupConfirmed = True
+				
+		except socket.error, (errno, msg):
+			xbmc.sleep(1000)
+			print 'script.advanced.wowan: Error No.: '+str(errno)+' / Error Msg.: '+msg.decode("utf-8","ignore")
+			if (enablePingCounterNotifies == "true"):
+				if errno == 11004:
+					xbmc.executebuiltin('XBMC.Notification("'+language(60005)+'","'+language(60006).replace("%localIp%",localIp)+'",10000,"'+iconError+'")')
+				elif errno == 10013:
+					if sys.platform == 'win32':
+						xbmc.executebuiltin('XBMC.Notification("'+language(60005)+'","'+language(60009)+'",20000,"'+iconError+'")')			
+				elif errno == 1:
+					if sys.platform == 'linux2':
+						xbmc.executebuiltin('XBMC.Notification("'+language(60005)+'","'+language(60010)+'",20000,"'+iconError+'")')		
+				else:
+					xbmc.executebuiltin('XBMC.Notification("'+language(60005)+'","'+msg.decode("utf-8","ignore")+'",20000,"'+iconError+'")')
 	
 	# Things to perform after successful wake-up
 	if (hostupConfirmed == True):
-	
-		# Launch additional command passed with parameters, if it should be delayed to after successful wakeup
-		if ((launchcommand == True) & (delaycommand == True)):
-			if (enableHostupNotifies == "true"):
-				xbmc.executebuiltin('XBMC.Notification("'+language(60004).replace("%hostOrIp%",hostOrIp)+'","'+language(60007)+'",5000,"'+iconSuccess+'")')
-			xbmc.sleep(1000)
-			xbmc.executebuiltin(sys.argv[1])
 			
 		# Initiate XBMC-library-updates, if we are in autostart and it is set in the settings.
 		if (isAutostart == True):
@@ -137,23 +163,23 @@ def main(isAutostart=False):
 				xbmc.sleep(libraryUpdatesDelay*1000)
 		
 			if (updateVideoLibraryAfterWol == "true"):
-				print 'script.advanced.wol: Initiating Video Library Update'
+				print 'script.advanced.wowan: Initiating Video Library Update'
 				xbmc.executebuiltin('UpdateLibrary("video")')
 				
 			if (updateMusicLibraryAfterWol == "true"):
-				print 'script.advanced.wol: Initiating Music Library Update'
+				print 'script.advanced.wowan: Initiating Music Library Update'
 				xbmc.executebuiltin('UpdateLibrary("music")')
 		
 
-	# Continue sending WOL-packets, if configured in the settings
+	# Continue sending WoWAN-packets, if configured in the settings
 	if (continuousWol == "true"):
 		xbmc.sleep(5000)
 		
 		if (enableLaunchNotifies == "true"):
-			# Send Notification regarding continuous WOL-packets
+			# Send Notification regarding continuous WoWAN-packets
 			xbmc.executebuiltin('XBMC.Notification("'+language(53020)+'","'+language(60008).replace("%continuousWolDelay%",str(continuousWolDelay))+'",5000,"'+iconSuccess+'")')
 		
-		# the previousTime-functionality to stop continuous WOL-packets after XBMC returns from standby was suggested by XBMC-forum-user "jandias" (THANKS!)
+		# the previousTime-functionality to stop continuous WoWAN-packets after Kodi returns from standby was suggested by Kodi-forum-user "jandias" (THANKS!)
 		previousTime = time.time()
 		countingSeconds = 0
 		while (not xbmc.abortRequested):
@@ -163,13 +189,23 @@ def main(isAutostart=False):
 				previousTime = time.time()
 				xbmc.sleep(1000)
 				if (countingSeconds == continuousWolDelay):
-					xbmc.executebuiltin('XBMC.WakeOnLan("'+macAddress+'")')
-					print 'script.advanced.wol: WakeOnLan signal sent to MAC-Address '+macAddress
+					#Access remote server by hostOrIp (really ugly)
+					req = Request(hostOrIp)
+					try:
+						response = urlopen(req)
+					except URLError as e:
+						if hasattr(e, 'reason'):
+							pass
+						elif hasattr(e, 'code'):
+							pass
+					else:
+						pass
+					print 'script.advanced.wowan: WoWAN '+hostOrIp
 					countingSeconds = 0
 				else:
 					countingSeconds+=1	
 
-	print 'script.advanced.wol: Closing WOL script'
+	print 'script.advanced.wowan: Closing WoWAN script'
 	return
 	
 if __name__ == '__main__':

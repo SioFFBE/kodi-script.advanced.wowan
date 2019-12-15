@@ -1,9 +1,9 @@
-# Wake-On-LAN
+# Wake-On-WAN
 
 import xbmcaddon, sys, time
 
 # Read Settings
-settings = xbmcaddon.Addon( id="script.advanced.wol" )
+settings = xbmcaddon.Addon( id="script.advanced.wowan" )
 autostart = settings.getSetting("autostart")
 wolAfterStandby = settings.getSetting("wolAfterStandby")
 wolDelayOnLaunch = int(settings.getSetting("wolDelayOnLaunch"))
@@ -15,16 +15,16 @@ if (autostart == "true"):
 	xbmc.sleep(wolDelayOnLaunch*1000)
   default.main(True)
   if (wolAfterStandby == "true"):
-	print "script.advanced.wol: Waiting for resume from standby"
+	print "script.advanced.wowan: Waiting for resume from standby"
 	previousTime = time.time()
 	while (not xbmc.abortRequested):
 		elapsedTime = time.time()-previousTime
 		if ( elapsedTime > 5):
 			if (wolDelayAfterStandby > 0):
 				xbmc.sleep(wolDelayAfterStandby*1000)
-			print "script.advanced.wol: Start WOL script after return from standby (Standby took "+str(time.time()-previousTime)+" sec.)"
+			print "script.advanced.wowan: Start WoWAN script after return from standby (Standby took "+str(time.time()-previousTime)+" sec.)"
 			default.main(True)
-			print "script.advanced.wol: Waiting for resume from standby"
+			print "script.advanced.wowan: Waiting for resume from standby"
 			previousTime = time.time()
 			xbmc.sleep(1000)
 		else:
